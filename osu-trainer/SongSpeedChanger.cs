@@ -25,7 +25,17 @@ namespace osu_trainer
             {
                 using (Mp3FileReader mp3 = new Mp3FileReader(temp1))
                 using (WaveStream wav = WaveFormatConversionStream.CreatePcmStream(mp3))
+                {
+                    // NAudio doesn't trim the encoder/decoder delay, but osu! does (gapless LAME tag).
+                    // Left in, that silence gets stretched and the new audio ends up late.
+                    int delaySamples = GetGaplessDelaySamples(temp1);
+                    if (delaySamples > 0)
+                    {
+                        long skip = (long)delaySamples * wav.WaveFormat.BlockAlign;
+                        wav.Position = Math.Min(skip, wav.Length);
+                    }
                     WaveFileWriter.CreateWaveFile(temp2, wav);
+                }
             }
             else if (ext.ToLower() == ".ogg")
             {
@@ -75,6 +85,44 @@ namespace osu_trainer
                 File.Delete(temp3);
             }
             catch { } // don't shit the bed if we can't delete temp files
+        }
+
+        // encoder delay from the LAME tag + 529 samples of mp3 decoder delay, or 0 if there's no tag
+        private static int GetGaplessDelaySamples(string mp3File)
+        {
+            const int decoderDelay = 529;
+            byte[] data = new byte[16384];
+            int length;
+            using (var fs = File.OpenRead(mp3File))
+            {
+                Id3v2Tag.ReadTag(fs); // skips the id3 tag if there is one
+                length = fs.Read(data, 0, data.Length);
+            }
+
+            int xing = -1;
+            for (int i = 0; i < 256 && i + 8 <= length; i++) // the tag lives in the first frame
+            {
+                if ((data[i] == 'X' && data[i + 1] == 'i' && data[i + 2] == 'n' && data[i + 3] == 'g') ||
+                    (data[i] == 'I' && data[i + 1] == 'n' && data[i + 2] == 'f' && data[i + 3] == 'o'))
+                {
+                    xing = i;
+                    break;
+                }
+            }
+            if (xing < 0)
+                return 0;
+
+            int flags = (data[xing + 4] << 24) | (data[xing + 5] << 16) | (data[xing + 6] << 8) | data[xing + 7];
+            int lame = xing + 8;
+            if ((flags & 1) != 0) lame += 4;   // frames
+            if ((flags & 2) != 0) lame += 4;   // bytes
+            if ((flags & 4) != 0) lame += 100; // toc
+            if ((flags & 8) != 0) lame += 4;   // quality
+            if (lame + 24 > length)
+                return 0;
+
+            int encoderDelay = (data[lame + 21] << 4) | (data[lame + 22] >> 4);
+            return encoderDelay + decoderDelay;
         }
     }
 }
