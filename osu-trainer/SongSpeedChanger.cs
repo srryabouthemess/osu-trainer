@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 using NAudio.Wave;
 using NAudio.Lame;
@@ -53,20 +54,15 @@ namespace osu_trainer
             string naa = highQuality ? "" : "-naa";
 
             decimal multiplier = preDT ? DTCompensatedMultiplier : effectiveMultiplier;
-            string tempo = $"-tempo={(multiplier - 1) * 100}";
+            // invariant culture: this runs on a background thread, and soundstretch stops parsing at a "," decimal separator
+            string tempo = string.Format(CultureInfo.InvariantCulture, "-tempo={0}", (multiplier - 1) * 100);
 
             decimal cents = (decimal)(1200.0 * Math.Log((double)effectiveMultiplier) / Math.Log(2));
             decimal semitones = cents / 100.0M;
-            string pitch = changePitch ? $"-pitch={semitones}" : "";
+            string pitch = changePitch ? string.Format(CultureInfo.InvariantCulture, "-pitch={0}", semitones) : "";
 
-            Process soundstretch = new Process();
-            soundstretch.StartInfo.FileName = Path.Combine("binaries", "soundstretch.exe");
-            soundstretch.StartInfo.Arguments = $"\"{temp2}\" \"{temp3}\" {quick} {naa} {tempo} {pitch}";
-            Console.WriteLine(soundstretch.StartInfo.Arguments);
-            soundstretch.StartInfo.UseShellExecute = false;
-            soundstretch.StartInfo.CreateNoWindow = true;
-            soundstretch.Start();
-            soundstretch.WaitForExit();
+            string options = $"{quick} {naa} {tempo} {pitch}";
+            RunSoundStretch($"\"{temp2}\" \"{temp3}\" {options}");
 
 
             // wav => mp3
@@ -74,7 +70,16 @@ namespace osu_trainer
                 File.Delete(outFile);
             using (var wav = new WaveFileReader(temp3))
             using (var mp3 = new LameMP3FileWriter(outFile, wav.WaveFormat, highQuality ? LAMEPreset.STANDARD : LAMEPreset.MEDIUM))
+            {
+                // soundstretch shifts the audio by a few dozen ms depending on the tempo (early when slowing down),
+                // so measure it with the same options and undo it
+                long lag = (long)MeasureStretchLagSamples(wav.WaveFormat, options, (double)multiplier) * wav.WaveFormat.BlockAlign;
+                if (lag < 0)
+                    mp3.Write(new byte[-lag], 0, (int)-lag);
+                else if (lag > 0)
+                    wav.Position = Math.Min(lag, wav.Length);
                 wav.CopyTo(mp3);
+            }
 
 
             // Clean up
@@ -85,6 +90,102 @@ namespace osu_trainer
                 File.Delete(temp3);
             }
             catch { } // don't shit the bed if we can't delete temp files
+        }
+
+        private static void RunSoundStretch(string arguments)
+        {
+            Process soundstretch = new Process();
+            soundstretch.StartInfo.FileName = Path.Combine("binaries", "soundstretch.exe");
+            soundstretch.StartInfo.Arguments = arguments;
+            Console.WriteLine(soundstretch.StartInfo.Arguments);
+            soundstretch.StartInfo.UseShellExecute = false;
+            soundstretch.StartInfo.CreateNoWindow = true;
+            soundstretch.Start();
+            soundstretch.WaitForExit();
+        }
+
+        // stretches a click track with the same options and returns how far the clicks land from where they should
+        // (in samples, negative = early)
+        private static int MeasureStretchLagSamples(WaveFormat format, string options, double tempo)
+        {
+            const int clicks = 20, clickMs = 60, maxLagMs = 200;
+            int sampleRate = format.SampleRate, channels = format.Channels;
+            string calibIn = Path.Combine(Guid.NewGuid().ToString() + ".wav");
+            string calibOut = Path.Combine(Guid.NewGuid().ToString() + ".wav");
+            try
+            {
+                // click (1 kHz tone) at 500ms, 1500ms, 2500ms...
+                using (var writer = new WaveFileWriter(calibIn, new WaveFormat(sampleRate, 16, channels)))
+                {
+                    int total = (clicks + 1) * sampleRate;
+                    for (int i = 0; i < total; i++)
+                    {
+                        double t = (double)i / sampleRate;
+                        double inClick = (t - 0.5) % 1.0;
+                        short value = t >= 0.5 && inClick < clickMs / 1000.0 ? (short)(16000 * Math.Sin(2 * Math.PI * 1000 * t)) : (short)0;
+                        for (int c = 0; c < channels; c++)
+                            writer.WriteSample(value / 32768f);
+                    }
+                }
+
+                RunSoundStretch($"\"{calibIn}\" \"{calibOut}\" {options}");
+
+                // loudness per millisecond
+                float[] envelope;
+                using (var reader = new WaveFileReader(calibOut))
+                {
+                    var samples = reader.ToSampleProvider();
+                    int outChannels = reader.WaveFormat.Channels;
+                    long frames = reader.SampleCount;
+                    envelope = new float[frames * 1000 / sampleRate + 1];
+                    float[] buffer = new float[outChannels * 4096];
+                    long frame = 0;
+                    int read;
+                    while ((read = samples.Read(buffer, 0, buffer.Length)) > 0)
+                        for (int i = 0; i < read; i += outChannels, frame++)
+                            envelope[frame * 1000 / sampleRate] += Math.Abs(buffer[i]);
+                }
+
+                // where the clicks should be after stretching
+                bool[] expected = new bool[envelope.Length];
+                for (int k = 0; k < clicks; k++)
+                {
+                    int start = (int)((500 + 1000 * k) / tempo);
+                    int end = (int)((500 + 1000 * k + clickMs) / tempo);
+                    for (int ms = start; ms < end && ms < expected.Length; ms++)
+                        expected[ms] = true;
+                }
+
+                int bestLag = 0;
+                double bestScore = double.MinValue;
+                for (int lag = -maxLagMs; lag <= maxLagMs; lag++)
+                {
+                    double score = 0;
+                    for (int ms = maxLagMs; ms < envelope.Length - maxLagMs; ms++)
+                        if (expected[ms])
+                            score += envelope[ms + lag];
+                    if (score > bestScore)
+                    {
+                        bestScore = score;
+                        bestLag = lag;
+                    }
+                }
+                return bestLag * sampleRate / 1000;
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine(e); // worst case the audio is a bit off, same as before
+                return 0;
+            }
+            finally
+            {
+                try
+                {
+                    File.Delete(calibIn);
+                    File.Delete(calibOut);
+                }
+                catch { }
+            }
         }
 
         // encoder delay from the LAME tag + 529 samples of mp3 decoder delay, or 0 if there's no tag
