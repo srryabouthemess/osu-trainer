@@ -1,4 +1,4 @@
 github repository name: srryabouthemess/osu-trainer
 application name: osu-trainer.exe
-current version: 1.8.1
+current version: 1.8.2
 check for updates: true
