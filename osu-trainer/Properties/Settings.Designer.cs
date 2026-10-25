@@ -50,6 +50,30 @@ namespace osu_trainer.Properties {
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
         [global::System.Configuration.DefaultSettingValueAttribute("False")]
+        public bool Mirror {
+            get {
+                return ((bool)(this["Mirror"]));
+            }
+            set {
+                this["Mirror"] = value;
+            }
+        }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("Vertical")]
+        public string MirrorAxis {
+            get {
+                return ((string)(this["MirrorAxis"]));
+            }
+            set {
+                this["MirrorAxis"] = value;
+            }
+        }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("False")]
         public bool ChangePitch {
             get {
                 return ((bool)(this["ChangePitch"]));

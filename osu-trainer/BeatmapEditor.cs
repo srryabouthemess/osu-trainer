@@ -28,6 +28,13 @@ namespace osu_trainer
         EMPTY_MAP
     }
 
+    public enum MirrorAxis
+    {
+        Vertical,
+        Horizontal,
+        Both
+    }
+
     public class BeatmapEditor
     {
         private MainForm mainform;
@@ -96,6 +103,8 @@ namespace osu_trainer
         // Toggles
         public bool ForceHardrockCirclesize { get; private set; }
         public bool NoSpinners { get; private set; }
+        public bool Mirror { get; private set; }
+        public MirrorAxis MirrorAxis { get; private set; } = MirrorAxis.Vertical;
         public bool ChangePitch { get; private set; }
         public bool HighQualityMp3s { get; private set; }
 
@@ -124,6 +133,9 @@ namespace osu_trainer
 
             ChangePitch = Properties.Settings.Default.ChangePitch;
             NoSpinners = Properties.Settings.Default.NoSpinners;
+            Mirror = Properties.Settings.Default.Mirror;
+            if (Enum.TryParse(Properties.Settings.Default.MirrorAxis, out MirrorAxis axis))
+                MirrorAxis = axis;
             HighQualityMp3s = Properties.Settings.Default.HighQualityMp3s;
 
             LoadProfilesFromDisk();
@@ -152,6 +164,8 @@ namespace osu_trainer
 
             Properties.Settings.Default.ChangePitch = ChangePitch;
             Properties.Settings.Default.NoSpinners = NoSpinners;
+            Properties.Settings.Default.Mirror = Mirror;
+            Properties.Settings.Default.MirrorAxis = MirrorAxis.ToString();
             Properties.Settings.Default.HighQualityMp3s = HighQualityMp3s;
             Properties.Settings.Default.Save();
         }
@@ -206,6 +220,10 @@ namespace osu_trainer
             // remove spinners
             if (NoSpinners)
                 exportBeatmap.RemoveSpinners();
+
+            // mirror hit objects (osu!standard only)
+            if (MirrorIsActive())
+                exportBeatmap.Mirror(MirrorAxis != MirrorAxis.Vertical, MirrorAxis != MirrorAxis.Horizontal);
 
             // Generate new mp3
             var audioFilePath = Path.Combine(JunUtils.GetBeatmapDirectoryName(OriginalBeatmap), exportBeatmap.AudioFilename);
@@ -729,6 +747,23 @@ namespace osu_trainer
             ControlsModified?.Invoke(this, EventArgs.Empty);
             BeatmapModified?.Invoke(this, EventArgs.Empty);
         }
+
+        public void ToggleMirror()
+        {
+            Mirror = !Mirror;
+            ControlsModified?.Invoke(this, EventArgs.Empty);
+            BeatmapModified?.Invoke(this, EventArgs.Empty);
+        }
+
+        public void SetMirrorAxis(MirrorAxis axis)
+        {
+            MirrorAxis = axis;
+            ControlsModified?.Invoke(this, EventArgs.Empty);
+            BeatmapModified?.Invoke(this, EventArgs.Empty);
+        }
+
+        public bool MirrorIsActive() => Mirror && OriginalBeatmap?.Mode == GameMode.osu;
+
         internal void ToggleHrEmulation()
         {
             ForceHardrockCirclesize = !ForceHardrockCirclesize;
@@ -763,7 +798,8 @@ namespace osu_trainer
                 NewBeatmap.ApproachRate != OriginalBeatmap.ApproachRate ||
                 NewBeatmap.OverallDifficulty != OriginalBeatmap.OverallDifficulty ||
                 Math.Abs(BpmRate - 1.0M) > 0.001M ||
-                NoSpinners
+                NoSpinners ||
+                MirrorIsActive()
             );
         }
 
@@ -861,6 +897,12 @@ namespace osu_trainer
 
             map.Version += HPCSAROD;
 
+            if (MirrorIsActive())
+            {
+                string axis = MirrorAxis == MirrorAxis.Vertical ? "V" : MirrorAxis == MirrorAxis.Horizontal ? "H" : "HV";
+                map.Version += $" (mirror {axis})";
+            }
+
             //if (NoSpinners)
             //    map.Version += " nospin";
 
@@ -929,6 +971,8 @@ namespace osu_trainer
                         writer.WriteLine(profile.BpmIsLocked);
                         writer.WriteLine(profile.lockedBpm);
                         writer.WriteLine(profile.BpmMultiplier);
+                        writer.WriteLine(profile.Mirror);
+                        writer.WriteLine(profile.MirrorAxis);
                     }
                 }
             }
@@ -948,9 +992,11 @@ namespace osu_trainer
             try
             {
                 var lines = File.ReadAllLines(UserProfilesFile);
+                // profiles saved before mirror existed have 17 lines each
+                int linesPerProfile = lines.Length >= UserProfiles.Length * 19 ? 19 : 17;
                 for (int i = 0; i < UserProfiles.Length; i++)
                 {
-                    int offset = i * 17;
+                    int offset = i * linesPerProfile;
                     UserProfiles[i].Name = lines[offset + 0];
                     UserProfiles[i].HpIsLocked = lines[offset + 1] == "True";
                     UserProfiles[i].CsIsLocked = lines[offset + 2] == "True";
@@ -968,6 +1014,12 @@ namespace osu_trainer
                     UserProfiles[i].BpmIsLocked = lines[offset + 14] == "True";
                     UserProfiles[i].lockedBpm = int.Parse(lines[offset + 15]);
                     UserProfiles[i].BpmMultiplier = decimal.Parse(lines[offset + 16]);
+                    if (linesPerProfile == 19)
+                    {
+                        UserProfiles[i].Mirror = lines[offset + 17] == "True";
+                        if (Enum.TryParse(lines[offset + 18], out MirrorAxis axis))
+                            UserProfiles[i].MirrorAxis = axis;
+                    }
                 }
             }
             catch
@@ -1025,6 +1077,8 @@ namespace osu_trainer
             UserProfiles[i].ForceHardrockCirclesize = ForceHardrockCirclesize;
             UserProfiles[i].ChangePitch = ChangePitch;
             UserProfiles[i].NoSpinners = NoSpinners;
+            UserProfiles[i].Mirror = Mirror;
+            UserProfiles[i].MirrorAxis = MirrorAxis;
 
             UserProfiles[i].BpmIsLocked = BpmIsLocked;
             UserProfiles[i].lockedBpm = lockedBpm;
@@ -1089,6 +1143,8 @@ namespace osu_trainer
             if (ForceHardrockCirclesize) NewBeatmap.CircleSize = OriginalBeatmap.CircleSize * 1.3M;
             ChangePitch = UserProfiles[i].ChangePitch;
             NoSpinners = UserProfiles[i].NoSpinners;
+            Mirror = UserProfiles[i].Mirror;
+            MirrorAxis = UserProfiles[i].MirrorAxis;
 
             if (UserProfiles[i].BpmIsLocked)
             {

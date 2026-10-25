@@ -87,7 +87,7 @@ namespace osu_trainer
             };
             checkControls = new List<OsuCheckBox>
             {
-                NoSpinnersCheck, HRCheck, ScaleARCheck, ScaleODCheck, ChangePitchCheck, highQualityMp3Check
+                NoSpinnersCheck, HRCheck, ScaleARCheck, ScaleODCheck, ChangePitchCheck, highQualityMp3Check, MirrorCheck
             };
 
             ApplyFonts();
@@ -322,6 +322,7 @@ namespace osu_trainer
             foreach (var check in checkControls)
                 check.Enabled = not_ready ? false : true;
             highQualityMp3Check.ForeColor = not_ready ? highQualityMp3Check.DisabledColor : Color.FromArgb(167, 154, 233);
+            UpdateMirrorControls();
         }
         private void UpdateLockButtons(object sender, EventArgs e)
         {
@@ -371,6 +372,8 @@ namespace osu_trainer
 
             // change checked state without raising any events
             NoSpinnersCheck.CheckedChanged         -= NoSpinnerCheckBox_CheckedChanged;
+            MirrorCheck.CheckedChanged             -= MirrorCheck_CheckedChanged;
+            MirrorAxisCombo.SelectedIndexChanged   -= MirrorAxisCombo_SelectedIndexChanged;
             HRCheck.CheckedChanged                 -= HRCheck_CheckedChanged;
             ChangePitchCheck.CheckedChanged        -= ChangePitchButton_CheckedChanged;
             ScaleODCheck.CheckedChanged            -= ScaleODCheck_CheckedChanged;
@@ -379,6 +382,8 @@ namespace osu_trainer
             updatesCheck.CheckedChanged            -= updatesCheck_CheckedChanged;
 
             NoSpinnersCheck.Checked            = editor.NoSpinners;
+            MirrorCheck.Checked                = editor.Mirror;
+            MirrorAxisCombo.SelectedIndex      = (int)editor.MirrorAxis;
             HRCheck.Checked                    = editor.ForceHardrockCirclesize;
             ChangePitchCheck.Checked           = editor.ChangePitch;
             ScaleODCheck.Checked               = editor.ScaleOD;
@@ -387,12 +392,16 @@ namespace osu_trainer
             updatesCheck.Checked               = isCheckForUpdatesEnabled();
 
             NoSpinnersCheck.CheckedChanged         += NoSpinnerCheckBox_CheckedChanged;
+            MirrorCheck.CheckedChanged             += MirrorCheck_CheckedChanged;
+            MirrorAxisCombo.SelectedIndexChanged   += MirrorAxisCombo_SelectedIndexChanged;
             HRCheck.CheckedChanged                 += HRCheck_CheckedChanged;
             ChangePitchCheck.CheckedChanged        += ChangePitchButton_CheckedChanged;
             ScaleODCheck.CheckedChanged            += ScaleODCheck_CheckedChanged;
             ScaleARCheck.CheckedChanged            += ScaleARCheck_CheckedChanged;
             highQualityMp3Check.CheckedChanged     += highQualityCheckBox_CheckedChanged;
             updatesCheck.CheckedChanged            += updatesCheck_CheckedChanged;
+
+            UpdateMirrorControls();
         }
 
         private void ToggleHpCsArOdDisplay(object sender, EventArgs e)
@@ -595,6 +604,17 @@ namespace osu_trainer
 
         private void ChangePitchButton_CheckedChanged(object sender, EventArgs e) => editor.ToggleChangePitchSetting();
         private void NoSpinnerCheckBox_CheckedChanged(object sender, EventArgs e) => editor.ToggleNoSpinners();
+        private void MirrorCheck_CheckedChanged(object sender, EventArgs e) => editor.ToggleMirror();
+        private void MirrorAxisCombo_SelectedIndexChanged(object sender, EventArgs e) => editor.SetMirrorAxis((MirrorAxis)MirrorAxisCombo.SelectedIndex);
+
+        // mirror only makes sense in osu!standard
+        private void UpdateMirrorControls()
+        {
+            bool enabled = editor.State != EditorState.NOT_READY && editor.GetMode() == GameMode.osu;
+            MirrorCheck.Enabled = enabled;
+            MirrorCheck.ForeColor = enabled ? Colors.PaleBlue : Colors.Disabled;
+            MirrorAxisCombo.Enabled = enabled && editor.Mirror;
+        }
         private void highQualityCheckBox_CheckedChanged(object sender, EventArgs e) => editor.ToggleHighQualityMp3s();
 
         private void BpmMultiplierTextBox_Submit(object sender, EventArgs e)

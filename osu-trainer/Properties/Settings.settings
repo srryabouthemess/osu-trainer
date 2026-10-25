@@ -8,6 +8,12 @@
     <Setting Name="NoSpinners" Type="System.Boolean" Scope="User">
       <Value Profile="(Default)">False</Value>
     </Setting>
+    <Setting Name="Mirror" Type="System.Boolean" Scope="User">
+      <Value Profile="(Default)">False</Value>
+    </Setting>
+    <Setting Name="MirrorAxis" Type="System.String" Scope="User">
+      <Value Profile="(Default)">Vertical</Value>
+    </Setting>
     <Setting Name="ChangePitch" Type="System.Boolean" Scope="User">
       <Value Profile="(Default)">False</Value>
     </Setting>

@@ -25,6 +25,8 @@ namespace osu_trainer
         public bool ForceHardrockCirclesize = false;
         public bool ChangePitch = false;
         public bool NoSpinners = false;
+        public bool Mirror = false;
+        public MirrorAxis MirrorAxis = MirrorAxis.Vertical;
 
         public bool BpmIsLocked = false;
         public int lockedBpm = 200;

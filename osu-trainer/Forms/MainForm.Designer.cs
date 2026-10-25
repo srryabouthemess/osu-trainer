@@ -95,6 +95,8 @@ namespace osu_trainer
             this.ChangePitchCheck = new osu_trainer.Controls.OsuCheckBox();
             this.highQualityMp3Check = new osu_trainer.Controls.OsuCheckBox();
             this.NoSpinnersCheck = new osu_trainer.Controls.OsuCheckBox();
+            this.MirrorCheck = new osu_trainer.Controls.OsuCheckBox();
+            this.MirrorAxisCombo = new System.Windows.Forms.ComboBox();
             this.button1 = new System.Windows.Forms.Button();
             this.updatesCheck = new osu_trainer.Controls.OsuCheckBox();
             this.middlePanel.SuspendLayout();
@@ -1122,13 +1124,15 @@ namespace osu_trainer
             this.extrasPanel.Controls.Add(this.ChangePitchCheck);
             this.extrasPanel.Controls.Add(this.highQualityMp3Check);
             this.extrasPanel.Controls.Add(this.NoSpinnersCheck);
+            this.extrasPanel.Controls.Add(this.MirrorCheck);
+            this.extrasPanel.Controls.Add(this.MirrorAxisCombo);
             this.extrasPanel.Controls.Add(this.button1);
             this.extrasPanel.Controls.Add(this.editHotkeysButton);
             this.extrasPanel.Controls.Add(this.updatesCheck);
             this.extrasPanel.Dock = System.Windows.Forms.DockStyle.Top;
             this.extrasPanel.Location = new System.Drawing.Point(0, 451);
             this.extrasPanel.Name = "extrasPanel";
-            this.extrasPanel.Size = new System.Drawing.Size(427, 102);
+            this.extrasPanel.Size = new System.Drawing.Size(427, 132);
             this.extrasPanel.TabIndex = 15;
             this.extrasPanel.Visible = false;
             // 
@@ -1175,6 +1179,37 @@ namespace osu_trainer
             this.NoSpinnersCheck.TextOnRight = true;
             this.NoSpinnersCheck.UseVisualStyleBackColor = true;
             this.NoSpinnersCheck.CheckedChanged += new System.EventHandler(this.NoSpinnerCheckBox_CheckedChanged);
+            // 
+            // MirrorCheck
+            // 
+            this.MirrorCheck.DisabledColor = System.Drawing.Color.FromArgb(((int)(((byte)(136)))), ((int)(((byte)(134)))), ((int)(((byte)(144)))));
+            this.MirrorCheck.Font = new System.Drawing.Font("Segoe UI", 9.75F, System.Drawing.FontStyle.Bold);
+            this.MirrorCheck.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(167)))), ((int)(((byte)(154)))), ((int)(((byte)(233)))));
+            this.MirrorCheck.Location = new System.Drawing.Point(2, 99);
+            this.MirrorCheck.Name = "MirrorCheck";
+            this.MirrorCheck.Size = new System.Drawing.Size(90, 24);
+            this.MirrorCheck.TabIndex = 26;
+            this.MirrorCheck.Text = "Mirror";
+            this.MirrorCheck.TextOnRight = true;
+            this.MirrorCheck.UseVisualStyleBackColor = true;
+            this.MirrorCheck.CheckedChanged += new System.EventHandler(this.MirrorCheck_CheckedChanged);
+            // 
+            // MirrorAxisCombo
+            // 
+            this.MirrorAxisCombo.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(38)))), ((int)(((byte)(35)))), ((int)(((byte)(53)))));
+            this.MirrorAxisCombo.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+            this.MirrorAxisCombo.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.MirrorAxisCombo.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Bold);
+            this.MirrorAxisCombo.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(167)))), ((int)(((byte)(154)))), ((int)(((byte)(233)))));
+            this.MirrorAxisCombo.Items.AddRange(new object[] {
+            "Vertical",
+            "Horizontal",
+            "Both"});
+            this.MirrorAxisCombo.Location = new System.Drawing.Point(96, 99);
+            this.MirrorAxisCombo.Name = "MirrorAxisCombo";
+            this.MirrorAxisCombo.Size = new System.Drawing.Size(110, 23);
+            this.MirrorAxisCombo.TabIndex = 27;
+            this.MirrorAxisCombo.SelectedIndexChanged += new System.EventHandler(this.MirrorAxisCombo_SelectedIndexChanged);
             // 
             // button1
             // 
@@ -1275,6 +1310,8 @@ namespace osu_trainer
         private ToggleIconButton HPLockCheck;
         private SongDisplay SongDisplay;
         private OsuCheckBox NoSpinnersCheck;
+        private OsuCheckBox MirrorCheck;
+        private System.Windows.Forms.ComboBox MirrorAxisCombo;
         private System.Windows.Forms.Button closeButton;
         private System.Windows.Forms.Button minimizeButton;
         private System.Windows.Forms.Panel titlePanel;
